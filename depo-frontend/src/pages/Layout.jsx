@@ -2,6 +2,7 @@ import { useNavigate, Outlet } from "react-router-dom";
 
 function Layout({ onLogout }) {
   const navigate = useNavigate();
+  const role = localStorage.getItem("role");
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -18,34 +19,46 @@ function Layout({ onLogout }) {
           gap: "12px"
         }}
       >
-        <h3 style={{ marginBottom: 10 }}>📦 Depo Panel</h3>
+        <h3>📦 Depo Panel</h3>
 
+        {/* HERKES GÖRÜR */}
         <button onClick={() => navigate("/dashboard")}>
           🏠 Dashboard
         </button>
 
+        <button onClick={() => navigate("/dashboard/orders")}>
+          📦 Siparişler
+        </button>
+
         <button onClick={() => navigate("/dashboard/urunler")}>
-          📦 Ürünler
-        </button>
+              📦 Ürünler
+            </button>
 
-        <button onClick={() => navigate("/dashboard/urunekle")}>
-          ➕ Ürün Ekle
-        </button>
-
-        <button onClick={() => navigate("/dashboard/hareketler")}>
+        {/* SADECE ADMIN */}
+        {role === "admin" && (
+          <>
+            <button onClick={() => navigate("/dashboard/hareketler")}>
           🔄 Hareketler
         </button>
 
+            <button onClick={() => navigate("/dashboard/create-order")}>
+          🧾 Sipariş Oluştur
+        </button>
+
+            <button onClick={() => navigate("/dashboard/urunekle")}>
+              ➕ Ürün Ekle
+            </button>
+          </>
+        )}
+
+        {/* ÇIKIŞ */}
         <div style={{ marginTop: "auto" }}>
           <button
             onClick={() => {
               onLogout();
               navigate("/");
             }}
-            style={{
-              background: "red",
-              color: "white"
-            }}
+            style={{ background: "red", color: "white" }}
           >
             🚪 Çıkış
           </button>

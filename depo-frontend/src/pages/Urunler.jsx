@@ -5,6 +5,8 @@ function Urunler() {
   const [urunler, setUrunler] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const role = localStorage.getItem("role");
+
   // düzenleme state
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
@@ -13,7 +15,13 @@ function Urunler() {
 
   // ÜRÜNLERİ ÇEK
   const fetchProducts = () => {
-    API.get("/products")
+    const token = localStorage.getItem("token");
+
+    API.get("/products", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
       .then((res) => {
         setUrunler(res.data);
       })
@@ -31,20 +39,39 @@ function Urunler() {
 
   // ÜRÜN SİL
   const deleteProduct = async (id) => {
+    const token = localStorage.getItem("token");
+
+    if (role !== "admin") {
+      alert("❌ Yetkin yok (sadece admin)");
+      return;
+    }
+
     try {
-      await API.delete(`/products/${id}`);
+      await API.delete(`/products/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       alert("Ürün silindi");
-
       fetchProducts();
-
     } catch (err) {
       console.log(err);
+
+      const msg =
+        err.response?.data?.message || "❌ Hata oluştu";
+
+      alert(msg);
     }
   };
 
   // DÜZENLEME MODU
   const startEdit = (urun) => {
+    if (role !== "admin") {
+      alert("❌ Yetkin yok (sadece admin)");
+      return;
+    }
+
     setEditId(urun.id);
     setEditName(urun.name);
     setEditStock(urun.stock);
@@ -53,21 +80,39 @@ function Urunler() {
 
   // GÜNCELLE
   const updateProduct = async () => {
+    const token = localStorage.getItem("token");
+
+    if (role !== "admin") {
+      alert("❌ Yetkin yok (sadece admin)");
+      return;
+    }
+
     try {
-      await API.put(`/products/${editId}`, {
-        name: editName,
-        stock: Number(editStock),
-        price: Number(editPrice)
-      });
+      await API.put(
+        `/products/${editId}`,
+        {
+          name: editName,
+          stock: Number(editStock),
+          price: Number(editPrice),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       alert("Ürün güncellendi");
 
       setEditId(null);
-
       fetchProducts();
-
     } catch (err) {
       console.log(err);
+
+      const msg =
+        err.response?.data?.message || "❌ Güncelleme hatası";
+
+      alert(msg);
     }
   };
 
@@ -134,7 +179,6 @@ function Urunler() {
                       <button onClick={updateProduct}>
                         Kaydet
                       </button>
-
                       <button onClick={() => setEditId(null)}>
                         İptal
                       </button>

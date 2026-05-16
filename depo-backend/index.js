@@ -2,7 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const db = require("./config/firebase");
-
+const checkRole = require("./middleware/roleMiddleware");
+const testUsers = [
+  { username: "admin", password: "123456", role: "admin" },
+  { username: "user", password: "123456", role: "user" }
+];
 const app = express();
 
 app.use(cors());
@@ -10,18 +14,26 @@ app.use(express.json());
 
 const SECRET_KEY = "supersecretkey123";
 
-// TEST ROUTE
+// ================= TEST =================
 app.get("/", (req, res) => {
   res.send("Backend çalışıyor 🚀");
 });
 
-// TEST USER
+// ================= ROUTES =================
+const stockRoutes = require("./routes/stockRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+
+app.use("/stock", stockRoutes);
+app.use("/api/orders", orderRoutes);
+
+// ================= TEST USER =================
 const user = {
   username: "admin",
-  password: "123456"
+  password: "123456",
+  role: "admin"
 };
 
-/* ================= JWT MIDDLEWARE ================= */
+// ================= JWT =================
 function verifyToken(req, res, next) {
   const authHeader = req.headers["authorization"];
 
@@ -41,31 +53,39 @@ function verifyToken(req, res, next) {
   });
 }
 
-/* ================= LOGIN ================= */
+// ================= LOGIN =================
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
-  if (username !== user.username || password !== user.password) {
+  const foundUser = testUsers.find(
+    u => u.username === username && u.password === password
+  );
+
+  if (!foundUser) {
     return res.status(401).json({ message: "Hatalı giriş" });
   }
 
   const token = jwt.sign(
-    { username },
+    {
+      username: foundUser.username,
+      role: foundUser.role
+    },
     SECRET_KEY,
     { expiresIn: "1h" }
   );
 
   res.json({
-  message: "Giriş başarılı",
-  token,
-  username
-});
+    message: "Giriş başarılı",
+    token,
+    username: foundUser.username,
+    role: foundUser.role
+  });
 });
 
-/* ================= PRODUCTS ================= */
+// ================= PRODUCTS =================
 
-// CREATE
-app.post("/products", verifyToken, async (req, res) => {
+// CREATE (ADMIN ONLY)
+app.post("/products", verifyToken, checkRole("admin"), async (req, res) => {
   try {
     const product = req.body;
 
@@ -84,12 +104,23 @@ app.post("/products", verifyToken, async (req, res) => {
 // GET ALL
 app.get("/products", verifyToken, async (req, res) => {
   try {
+    const role = req.user.role;
+
     const snapshot = await db.collection("products").get();
 
-    const products = snapshot.docs.map(doc => ({
+    let products = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+
+    // 👇 USER için filtre (istersen sadeleştirebiliriz)
+    if (role === "user") {
+      products = products.map(p => ({
+        id: p.id,
+        name: p.name,
+        stock: p.stock
+      }));
+    }
 
     res.json(products);
 
@@ -101,8 +132,13 @@ app.get("/products", verifyToken, async (req, res) => {
 // DELETE
 app.delete("/products/:id", verifyToken, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Yetkin yok" });
+    }
+
     await db.collection("products").doc(req.params.id).delete();
     res.json({ message: "Ürün silindi" });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -111,14 +147,20 @@ app.delete("/products/:id", verifyToken, async (req, res) => {
 // UPDATE
 app.put("/products/:id", verifyToken, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Yetkin yok" });
+    }
+
     await db.collection("products").doc(req.params.id).update(req.body);
+
     res.json({ message: "Ürün güncellendi" });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-/* ================= STOCK ================= */
+// ================= STOCK =================
 app.post("/stock", verifyToken, async (req, res) => {
   try {
     const { productId, type, quantity } = req.body;
@@ -132,7 +174,7 @@ app.post("/stock", verifyToken, async (req, res) => {
 
     const product = productDoc.data();
 
-    let newStock = product.stock;
+    let newStock = product.stock || 0;
 
     if (type === "IN") {
       newStock += quantity;
@@ -148,6 +190,7 @@ app.post("/stock", verifyToken, async (req, res) => {
 
     await db.collection("stockMovements").add({
       productId,
+      productName: product.name,
       type,
       quantity,
       date: new Date(),
@@ -164,7 +207,7 @@ app.post("/stock", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= REPORTS ================= */
+// ================= REPORTS =================
 
 // LOW STOCK
 app.get("/reports/low-stock", verifyToken, async (req, res) => {
@@ -176,7 +219,7 @@ app.get("/reports/low-stock", verifyToken, async (req, res) => {
       ...doc.data()
     }));
 
-    const lowStock = products.filter(p => p.stock <= 5);
+    const lowStock = products.filter(p => (p.stock || 0) <= 5);
 
     res.json(lowStock);
 
@@ -185,7 +228,84 @@ app.get("/reports/low-stock", verifyToken, async (req, res) => {
   }
 });
 
-// MOVEMENTS
+// AUTO ORDERS
+app.get("/reports/auto-orders", verifyToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection("products").get();
+
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    const orders = products
+      .filter(p => (p.stock || 0) <= (p.minStock || 0))
+      .map(p => ({
+        productId: p.id,
+        productName: p.name,
+        stock: p.stock || 0,
+        requiredQuantity: (p.minStock || 0) - (p.stock || 0),
+        status: "ORDER_REQUIRED"
+      }));
+
+    res.json(orders);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ================= DASHBOARD =================
+app.get("/dashboard", verifyToken, async (req, res) => {
+  try {
+    const productsSnapshot = await db.collection("products").get();
+
+    const movementsSnapshot = await db.collection("stockMovements")
+      .orderBy("date", "desc")
+      .limit(5)
+      .get();
+
+    let totalProducts = 0;
+    let totalStock = 0;
+    let criticalProducts = [];
+
+    productsSnapshot.forEach(doc => {
+      const p = doc.data();
+
+      totalProducts++;
+      totalStock += Number(p.stock || 0);
+
+      if ((p.stock || 0) <= (p.minStock || 0)) {
+        criticalProducts.push({
+          id: doc.id,
+          ...p
+        });
+      }
+    });
+
+    let recentMovements = [];
+
+    movementsSnapshot.forEach(doc => {
+      recentMovements.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      totalProducts,
+      totalStock,
+      criticalCount: criticalProducts.length,
+      criticalProducts,
+      recentMovements
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Dashboard verisi alınamadı" });
+  }
+});
+
+// ================= MOVEMENTS =================
 app.get("/reports/movements", verifyToken, async (req, res) => {
   try {
     const snapshot = await db.collection("stockMovements").get();
@@ -202,7 +322,7 @@ app.get("/reports/movements", verifyToken, async (req, res) => {
   }
 });
 
-// SUMMARY
+// ================= SUMMARY =================
 app.get("/reports/summary", verifyToken, async (req, res) => {
   try {
     const snapshot = await db.collection("products").get();
@@ -212,6 +332,7 @@ app.get("/reports/summary", verifyToken, async (req, res) => {
     const products = snapshot.docs.map(doc => doc.data());
     const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
 
+    
     res.json({
       totalProducts,
       totalStock
@@ -222,7 +343,7 @@ app.get("/reports/summary", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= SERVER ================= */
+// ================= SERVER =================
 const PORT = 5000;
 
 app.listen(PORT, () => {

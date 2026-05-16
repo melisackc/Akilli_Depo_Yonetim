@@ -8,7 +8,8 @@ import Layout from "./pages/Layout";
 import Urunler from "./pages/Urunler";
 import UrunEkle from "./pages/UrunEkle";
 import Hareketler from "./pages/Hareketler";
-
+import CreateOrder from "./pages/CreateOrder";
+import Orders from "./pages/Orders";
 function App() {
   const [auth, setAuth] = useState(() => {
     const token = localStorage.getItem("token");
@@ -19,18 +20,18 @@ function App() {
   });
 
   const handleLogin = (data) => {
-    const authData = {
-      token: data.token,
-      username: data.username || data.user?.username,
-      role: data.role || data.user?.role,
-    };
-
-    localStorage.setItem("token", authData.token);
-    localStorage.setItem("username", authData.username);
-    localStorage.setItem("role", authData.role);
-
-    setAuth(authData);
+  const authData = {
+    token: data.token,
+    username: data.username,
+    role: data.role
   };
+
+  localStorage.setItem("token", authData.token);
+  localStorage.setItem("username", authData.username);
+  localStorage.setItem("role", authData.role);
+
+  setAuth(authData);
+};
 
   const handleLogout = () => {
     localStorage.clear();
@@ -53,6 +54,8 @@ function App() {
           }
         />
 
+
+
         {/* LAYOUT + DASHBOARD SYSTEM */}
         <Route
           path="/dashboard/*"
@@ -69,6 +72,8 @@ function App() {
           <Route path="urunler" element={<Urunler />} />
           <Route path="urunekle" element={<UrunEkle />} />
           <Route path="hareketler" element={<Hareketler />} />
+          <Route path="create-order" element={<CreateOrder />} />
+          <Route path="orders" element={<Orders />} />
         </Route>
 
       </Routes>
