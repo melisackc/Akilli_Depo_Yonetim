@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
+import { isAdmin } from "../utils/auth";
 
 function Urunler() {
   const [urunler, setUrunler] = useState([]);
@@ -7,67 +8,52 @@ function Urunler() {
 
   const role = localStorage.getItem("role");
 
-  // düzenleme state
+  // edit state
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editStock, setEditStock] = useState("");
   const [editPrice, setEditPrice] = useState("");
 
-  // ÜRÜNLERİ ÇEK
+  // ================= GET PRODUCTS =================
   const fetchProducts = () => {
     const token = localStorage.getItem("token");
 
     API.get("/products", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => {
-        setUrunler(res.data);
-      })
-      .catch((err) => {
-        console.log("Hata:", err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      .then((res) => setUrunler(res.data))
+      .catch((err) => console.log(err))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  // ÜRÜN SİL
+  // ================= DELETE =================
   const deleteProduct = async (id) => {
     const token = localStorage.getItem("token");
 
-    if (role !== "admin") {
+    if (!isAdmin()) {
       alert("❌ Yetkin yok (sadece admin)");
       return;
     }
 
     try {
       await API.delete(`/products/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       alert("Ürün silindi");
       fetchProducts();
     } catch (err) {
-      console.log(err);
-
-      const msg =
-        err.response?.data?.message || "❌ Hata oluştu";
-
-      alert(msg);
+      alert(err.response?.data?.message || "❌ Hata oluştu");
     }
   };
 
-  // DÜZENLEME MODU
+  // ================= START EDIT =================
   const startEdit = (urun) => {
-    if (role !== "admin") {
+    if (!isAdmin()) {
       alert("❌ Yetkin yok (sadece admin)");
       return;
     }
@@ -78,11 +64,11 @@ function Urunler() {
     setEditPrice(urun.price);
   };
 
-  // GÜNCELLE
+  // ================= UPDATE =================
   const updateProduct = async () => {
     const token = localStorage.getItem("token");
 
-    if (role !== "admin") {
+    if (!isAdmin()) {
       alert("❌ Yetkin yok (sadece admin)");
       return;
     }
@@ -96,9 +82,7 @@ function Urunler() {
           price: Number(editPrice),
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -107,27 +91,20 @@ function Urunler() {
       setEditId(null);
       fetchProducts();
     } catch (err) {
-      console.log(err);
-
-      const msg =
-        err.response?.data?.message || "❌ Güncelleme hatası";
-
-      alert(msg);
+      alert(err.response?.data?.message || "❌ Güncelleme hatası");
     }
   };
 
-  if (loading) {
-    return <h3>Yükleniyor...</h3>;
-  }
+  if (loading) return <h3>Yükleniyor...</h3>;
 
   return (
-    <div>
+    <div style={{ padding: 20 }}>
       <h2>📦 Ürünler</h2>
 
       {urunler.length === 0 ? (
         <p>Hiç ürün yok</p>
       ) : (
-        <table border="1" cellPadding="10">
+        <table border="1" cellPadding="10" width="100%">
           <thead>
             <tr>
               <th>Ürün Adı</th>
@@ -140,6 +117,7 @@ function Urunler() {
           <tbody>
             {urunler.map((u) => (
               <tr key={u.id}>
+                {/* NAME */}
                 <td>
                   {editId === u.id ? (
                     <input
@@ -151,6 +129,7 @@ function Urunler() {
                   )}
                 </td>
 
+                {/* STOCK */}
                 <td>
                   {editId === u.id ? (
                     <input
@@ -162,6 +141,7 @@ function Urunler() {
                   )}
                 </td>
 
+                {/* PRICE */}
                 <td>
                   {editId === u.id ? (
                     <input
@@ -173,25 +153,17 @@ function Urunler() {
                   )}
                 </td>
 
+                {/* ACTIONS */}
                 <td>
                   {editId === u.id ? (
                     <>
-                      <button onClick={updateProduct}>
-                        Kaydet
-                      </button>
-                      <button onClick={() => setEditId(null)}>
-                        İptal
-                      </button>
+                      <button onClick={updateProduct}>Kaydet</button>
+                      <button onClick={() => setEditId(null)}>İptal</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => startEdit(u)}>
-                        Düzenle
-                      </button>
-
-                      <button onClick={() => deleteProduct(u.id)}>
-                        Sil
-                      </button>
+                      <button onClick={() => startEdit(u)}>Düzenle</button>
+                      <button onClick={() => deleteProduct(u.id)}>Sil</button>
                     </>
                   )}
                 </td>

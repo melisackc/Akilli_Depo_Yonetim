@@ -5,21 +5,34 @@ const {
   createOrder,
   getOrders,
   getOrderById,
-  updateOrderStatus
+  updateOrderStatus,
+  createAutoOrders
 } = require("../controllers/orderController");
 
 const verifyToken = require("../middleware/authMiddleware");
 
-// ➕ Sipariş oluştur
+// 🔥 auto order
+const { runAutoOrders } = require("../services/autoOrderService");
+
+router.post("/auto-create", verifyToken, async (req, res) => {
+  try {
+    await runAutoOrders();
+    res.json({ message: "Auto orders checked safely" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ➕ create order
 router.post("/", verifyToken, createOrder);
 
-// 📦 Liste
+// 📦 get all
 router.get("/", verifyToken, getOrders);
 
-// 🔍 Tek sipariş
+// 🔍 get one
 router.get("/:id", verifyToken, getOrderById);
 
-// ✏️ status update
+// ✏️ update
 router.put("/:id", verifyToken, updateOrderStatus);
 
 module.exports = router;

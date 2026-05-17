@@ -1,77 +1,120 @@
-import { useNavigate, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 function Layout({ onLogout }) {
-  const navigate = useNavigate();
   const role = localStorage.getItem("role");
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-
+    <div style={styles.wrapper}>
       {/* SIDEBAR */}
-      <div
-        style={{
-          width: 220,
-          background: "#1e1e2f",
-          color: "white",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px"
-        }}
-      >
-        <h3>📦 Depo Panel</h3>
+      <aside style={styles.sidebar}>
+        <div style={styles.logo}>📦 DEPO</div>
 
-        {/* HERKES GÖRÜR */}
-        <button onClick={() => navigate("/dashboard")}>
-          🏠 Dashboard
-        </button>
+        <nav style={styles.nav}>
+          <NavItem to="/dashboard" label="Dashboard" />
+          <NavItem to="/dashboard/urunler" label="Ürünler" />
+          <NavItem to="/dashboard/urunekle" label="Ürün Ekle" />
+          <NavItem to="/dashboard/hareketler" label="Hareketler" />
+          <NavItem to="/dashboard/create-order" label="Sipariş Oluştur" />
+          <NavItem to="/dashboard/orders" label="Siparişler" />
+        </nav>
 
-        <button onClick={() => navigate("/dashboard/orders")}>
-          📦 Siparişler
-        </button>
+        <div style={styles.footer}>
+          <div style={styles.userBox}>
+            <div>👤 {localStorage.getItem("username")}</div>
+        
+          </div>
 
-        <button onClick={() => navigate("/dashboard/urunler")}>
-              📦 Ürünler
-            </button>
-
-        {/* SADECE ADMIN */}
-        {role === "admin" && (
-          <>
-            <button onClick={() => navigate("/dashboard/hareketler")}>
-          🔄 Hareketler
-        </button>
-
-            <button onClick={() => navigate("/dashboard/create-order")}>
-          🧾 Sipariş Oluştur
-        </button>
-
-            <button onClick={() => navigate("/dashboard/urunekle")}>
-              ➕ Ürün Ekle
-            </button>
-          </>
-        )}
-
-        {/* ÇIKIŞ */}
-        <div style={{ marginTop: "auto" }}>
-          <button
-            onClick={() => {
-              onLogout();
-              navigate("/");
-            }}
-            style={{ background: "red", color: "white" }}
-          >
-            🚪 Çıkış
+          <button style={styles.logout} onClick={onLogout}>
+            Çıkış
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* CONTENT */}
-      <div style={{ flex: 1, padding: 20, overflow: "auto" }}>
+      <main style={styles.content}>
         <Outlet />
-      </div>
-
+      </main>
     </div>
   );
 }
+
+/* NAV ITEM */
+function NavItem({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      style={({ isActive }) => ({
+        ...styles.link,
+        background: isActive ? "#1f2937" : "transparent",
+      })}
+    >
+      {label}
+    </NavLink>
+  );
+}
+
+/* STYLES */
+const styles = {
+  wrapper: {
+    display: "flex",
+    minHeight: "100vh",
+    fontFamily: "Arial",
+  },
+
+  sidebar: {
+    width: "260px",
+    background: "#0f172a",
+    color: "white",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    padding: "20px",
+  },
+
+  logo: {
+    fontSize: "20px",
+    fontWeight: "bold",
+    marginBottom: "20px",
+  },
+
+  nav: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+
+  link: {
+    color: "#cbd5e1",
+    textDecoration: "none",
+    padding: "10px",
+    borderRadius: "8px",
+  },
+
+  footer: {
+    marginTop: "20px",
+  },
+
+  userBox: {
+    marginBottom: "10px",
+    fontSize: "14px",
+    color: "#94a3b8",
+  },
+
+  logout: {
+    width: "100%",
+    padding: "10px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#ef4444",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  content: {
+    flex: 1,
+    background: "#f1f5f9",
+    padding: "20px",
+  },
+};
 
 export default Layout;

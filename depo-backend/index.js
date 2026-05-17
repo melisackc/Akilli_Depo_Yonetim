@@ -3,6 +3,8 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const db = require("./config/firebase");
 const checkRole = require("./middleware/roleMiddleware");
+const { v4: uuidv4 } = require("uuid");
+const cron = require("node-cron");
 const testUsers = [
   { username: "admin", password: "123456", role: "admin" },
   { username: "user", password: "123456", role: "user" }
@@ -11,6 +13,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log("REQUEST:", req.method, req.url);
+  next();
+});
 
 const SECRET_KEY = "supersecretkey123";
 
@@ -88,7 +94,7 @@ app.post("/login", (req, res) => {
 app.post("/products", verifyToken, checkRole("admin"), async (req, res) => {
   try {
     const product = req.body;
-
+    autoOrdered: false
     const docRef = await db.collection("products").add(product);
 
     res.json({
@@ -160,6 +166,56 @@ app.put("/products/:id", verifyToken, async (req, res) => {
   }
 });
 
+/*
+app.post("/orders/auto-create", verifyToken, async (req, res) => {
+  try {
+    const snapshot = await db.collection("products").get();
+
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    const lowStockItems = products.filter(
+      p => (p.stock || 0) <= (p.minStock || 0)
+    );
+
+    if (lowStockItems.length === 0) {
+      return res.json({ message: "Oluşturulacak sipariş yok", count: 0 });
+    }
+
+    const createdOrders = [];
+
+    for (const p of lowStockItems) {
+      const order = {
+        id: uuidv4(),
+        products: [
+          {
+            id: p.id,
+            name: p.name,
+            qty: (p.minStock || 0) - (p.stock || 0)
+          }
+        ],
+        status: "auto-created",
+        createdAt: new Date(),
+        user: req.user.username || "system"
+      };
+
+      await db.collection("orders").doc(order.id).set(order);
+      createdOrders.push(order);
+    }
+
+    res.json({
+      message: "Auto orders created",
+      count: createdOrders.length,
+      createdOrders
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+*/
 // ================= STOCK =================
 app.post("/stock", verifyToken, async (req, res) => {
   try {
@@ -340,6 +396,32 @@ app.get("/reports/summary", verifyToken, async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+const orderController = require("./controllers/orderController");
+cron.schedule("*/1 * * * *", async () => {
+  console.log("🔄 Auto order check running...");
+
+  try {
+    const fakeReq = {
+      user: {
+        username: "system",
+        role: "admin",
+      },
+    };
+
+    const fakeRes = {
+      json: (data) => console.log("AUTO ORDER:", data),
+      status: () => ({
+        json: (data) => console.log("AUTO ORDER ERROR:", data),
+      }),
+    };
+
+    await orderController.createAutoOrders(fakeReq, fakeRes);
+
+  } catch (err) {
+    console.log("CRON ERROR:", err.message);
   }
 });
 

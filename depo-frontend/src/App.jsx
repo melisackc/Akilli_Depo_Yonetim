@@ -10,6 +10,9 @@ import UrunEkle from "./pages/UrunEkle";
 import Hareketler from "./pages/Hareketler";
 import CreateOrder from "./pages/CreateOrder";
 import Orders from "./pages/Orders";
+
+import { isAdmin, isAuth } from "./utils/auth";
+
 function App() {
   const [auth, setAuth] = useState(() => {
     const token = localStorage.getItem("token");
@@ -20,18 +23,18 @@ function App() {
   });
 
   const handleLogin = (data) => {
-  const authData = {
-    token: data.token,
-    username: data.username,
-    role: data.role
+    const authData = {
+      token: data.token,
+      username: data.username,
+      role: data.role,
+    };
+
+    localStorage.setItem("token", authData.token);
+    localStorage.setItem("username", authData.username);
+    localStorage.setItem("role", authData.role);
+
+    setAuth(authData);
   };
-
-  localStorage.setItem("token", authData.token);
-  localStorage.setItem("username", authData.username);
-  localStorage.setItem("role", authData.role);
-
-  setAuth(authData);
-};
 
   const handleLogout = () => {
     localStorage.clear();
@@ -42,7 +45,7 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* LOGIN */}
+        {/* ================= LOGIN ================= */}
         <Route
           path="/"
           element={
@@ -54,9 +57,7 @@ function App() {
           }
         />
 
-
-
-        {/* LAYOUT + DASHBOARD SYSTEM */}
+        {/* ================= LAYOUT ================= */}
         <Route
           path="/dashboard/*"
           element={
@@ -67,13 +68,42 @@ function App() {
             )
           }
         >
-          {/* ALT SAYFALAR */}
+          {/* ================= COMMON (USER + ADMIN) ================= */}
           <Route index element={<Dashboard auth={auth} />} />
           <Route path="urunler" element={<Urunler />} />
-          <Route path="urunekle" element={<UrunEkle />} />
-          <Route path="hareketler" element={<Hareketler />} />
           <Route path="create-order" element={<CreateOrder />} />
           <Route path="orders" element={<Orders />} />
+
+          {/* ================= ADMIN ONLY ================= */}
+          <Route
+            path="urunekle"
+            element={
+              isAuth() ? (
+                isAdmin() ? (
+                  <UrunEkle />
+                ) : (
+                  <Navigate to="/dashboard" />
+                )
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+
+          <Route
+            path="hareketler"
+            element={
+              isAuth() ? (
+                isAdmin() ? (
+                  <Hareketler />
+                ) : (
+                  <Navigate to="/dashboard" />
+                )
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
         </Route>
 
       </Routes>
