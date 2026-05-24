@@ -1,120 +1,73 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { isAdmin } from "../utils/auth";
 
 function Layout({ onLogout }) {
   const role = localStorage.getItem("role");
+  const username = localStorage.getItem("username");
 
   return (
-    <div style={styles.wrapper}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-color)" }}>
       {/* SIDEBAR */}
-      <aside style={styles.sidebar}>
-        <div style={styles.logo}>📦 DEPO</div>
+      <aside className="glass-panel" style={{ width: "260px", margin: "16px", padding: "24px", display: "flex", flexDirection: "column", justifyContent: "space-between", borderRadius: "16px", background: "linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.95) 100%)", color: "white", border: "none" }}>
 
-        <nav style={styles.nav}>
-          <NavItem to="/dashboard" label="Dashboard" />
-          <NavItem to="/dashboard/urunler" label="Ürünler" />
-          <NavItem to="/dashboard/urunekle" label="Ürün Ekle" />
-          <NavItem to="/dashboard/hareketler" label="Hareketler" />
-          <NavItem to="/dashboard/create-order" label="Sipariş Oluştur" />
-          <NavItem to="/dashboard/orders" label="Siparişler" />
-        </nav>
-
-        <div style={styles.footer}>
-          <div style={styles.userBox}>
-            <div>👤 {localStorage.getItem("username")}</div>
-        
+        <div>
+          <div style={{ fontSize: "24px", fontWeight: "700", marginBottom: "32px", color: "white", display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "28px" }}>📦</span> Akıllı Depo
           </div>
 
-          <button style={styles.logout} onClick={onLogout}>
-            Çıkış
+          <nav style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <NavItem to="/dashboard" label="📊 Dashboard" />
+            <NavItem to="/dashboard/urunler" label="📦 Ürünler" />
+            {isAdmin() && <NavItem to="/dashboard/urunekle" label="➕ Ürün Ekle" />}
+            {isAdmin() && <NavItem to="/dashboard/hareketler" label="🔄 Hareketler (Giriş/Çıkış)" />}
+            <NavItem to="/dashboard/create-order" label="🛒 Sipariş Oluştur" />
+            <NavItem to="/dashboard/orders" label="📋 Siparişler" />
+          </nav>
+        </div>
+
+        <div style={{ marginTop: "auto" }}>
+          <div style={{ padding: "16px", background: "rgba(255,255,255,0.1)", borderRadius: "12px", marginBottom: "16px" }}>
+            <div style={{ fontSize: "14px", color: "#cbd5e1" }}>Hoş geldin,</div>
+            <div style={{ fontSize: "16px", fontWeight: "600", color: "white" }}>{username}</div>
+            <div style={{ fontSize: "12px", color: "var(--secondary)", marginTop: "4px", textTransform: "uppercase" }}></div>
+          </div>
+
+          <button className="btn btn-danger" style={{ width: "100%", justifyContent: "center" }} onClick={onLogout}>
+            Çıkış Yap 🚪
           </button>
         </div>
       </aside>
 
       {/* CONTENT */}
-      <main style={styles.content}>
-        <Outlet />
+      <main style={{ flex: 1, padding: "24px 32px 24px 8px", overflowY: "auto" }}>
+        <div className="animate-fade-in">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
 }
 
-/* NAV ITEM */
 function NavItem({ to, label }) {
   return (
     <NavLink
       to={to}
+      end={to === "/dashboard"}
       style={({ isActive }) => ({
-        ...styles.link,
-        background: isActive ? "#1f2937" : "transparent",
+        textDecoration: "none",
+        padding: "12px 16px",
+        borderRadius: "10px",
+        color: isActive ? "white" : "#94a3b8",
+        background: isActive ? "var(--primary)" : "transparent",
+        fontWeight: isActive ? "600" : "500",
+        transition: "all 0.2s ease",
+        display: "flex",
+        alignItems: "center",
       })}
     >
       {label}
     </NavLink>
   );
 }
-
-/* STYLES */
-const styles = {
-  wrapper: {
-    display: "flex",
-    minHeight: "100vh",
-    fontFamily: "Arial",
-  },
-
-  sidebar: {
-    width: "260px",
-    background: "#0f172a",
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    padding: "20px",
-  },
-
-  logo: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    marginBottom: "20px",
-  },
-
-  nav: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-
-  link: {
-    color: "#cbd5e1",
-    textDecoration: "none",
-    padding: "10px",
-    borderRadius: "8px",
-  },
-
-  footer: {
-    marginTop: "20px",
-  },
-
-  userBox: {
-    marginBottom: "10px",
-    fontSize: "14px",
-    color: "#94a3b8",
-  },
-
-  logout: {
-    width: "100%",
-    padding: "10px",
-    border: "none",
-    borderRadius: "8px",
-    background: "#ef4444",
-    color: "white",
-    cursor: "pointer",
-  },
-
-  content: {
-    flex: 1,
-    background: "#f1f5f9",
-    padding: "20px",
-  },
-};
 
 export default Layout;

@@ -97,6 +97,17 @@ app.post("/products", verifyToken, checkRole("admin"), async (req, res) => {
     autoOrdered: false
     const docRef = await db.collection("products").add(product);
 
+    // 🔥 Stok Giriş (IN) hareketini Firebase'e kaydet
+    await db.collection("stockMovements").add({
+      productId: docRef.id,
+      productName: product.name,
+      type: "IN",
+      quantity: product.stock || 0,
+      date: new Date(),
+      user: req.user?.username || "admin",
+      reason: "Yeni Ürün Girişi"
+    });
+
     res.json({
       message: "Ürün eklendi",
       id: docRef.id
@@ -311,13 +322,47 @@ app.get("/reports/auto-orders", verifyToken, async (req, res) => {
   }
 });
 
+// ================= AI OPTIMIZATION =================
+app.post("/api/optimize", verifyToken, checkRole("admin"), async (req, res) => {
+  try {
+    const snapshot = await db.collection("products").get();
+    let products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    const aiResponse = await fetch("http://127.0.0.1:5001/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ products })
+    });
+
+    if (!aiResponse.ok) {
+      throw new Error("AI servis hatası");
+    }
+
+    const aiData = await aiResponse.json();
+    const optimizedProducts = aiData.optimized_products || [];
+
+    for (const opt of optimizedProducts) {
+      await db.collection("products").doc(opt.productId).update({
+        minStock: opt.recommendedMinStock
+      });
+    }
+
+    res.json({ message: "Stok seviyeleri AI ile optimize edildi", data: optimizedProducts });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ================= DASHBOARD =================
 app.get("/dashboard", verifyToken, async (req, res) => {
   try {
     const productsSnapshot = await db.collection("products").get();
 
-    const movementsSnapshot = await db.collection("stockMovements")
-      .orderBy("date", "desc")
+    const ordersSnapshot = await db.collection("orders")
+      .orderBy("createdAt", "desc")
       .limit(5)
       .get();
 
@@ -339,10 +384,10 @@ app.get("/dashboard", verifyToken, async (req, res) => {
       }
     });
 
-    let recentMovements = [];
+    let recentOrders = [];
 
-    movementsSnapshot.forEach(doc => {
-      recentMovements.push({
+    ordersSnapshot.forEach(doc => {
+      recentOrders.push({
         id: doc.id,
         ...doc.data()
       });
@@ -353,7 +398,7 @@ app.get("/dashboard", verifyToken, async (req, res) => {
       totalStock,
       criticalCount: criticalProducts.length,
       criticalProducts,
-      recentMovements
+      recentOrders
     });
 
   } catch (err) {

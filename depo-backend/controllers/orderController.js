@@ -31,6 +31,17 @@ exports.createOrder = async (req, res) => {
       }
 
       await productRef.update({ stock: newStock });
+
+      // 🔥 Stok Çıkış (OUT) hareketini Firebase'e profesyonelce kaydet
+      await db.collection("stockMovements").add({
+        productId: item.id,
+        productName: product.name,
+        type: "OUT",
+        quantity: item.qty,
+        date: new Date(),
+        user: req.user?.username || "unknown",
+        reason: "Sipariş Çıkışı"
+      });
     }
 
     const order = {
